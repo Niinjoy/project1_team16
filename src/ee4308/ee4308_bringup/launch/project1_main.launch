@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Resets the world -->
+    <include file="$(find ee4308_turtle)/launch/project1_run.launch"/>
+    
+</launch>
