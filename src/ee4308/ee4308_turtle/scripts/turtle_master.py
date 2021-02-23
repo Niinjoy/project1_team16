@@ -167,6 +167,8 @@ def master(goals=[]):
     need_path = True
     need_trajectory = True
     
+    inf_count = 0
+
     print('=== [MASTER] Initialised ===')
     t = rospy.get_time()
     run_start = t
@@ -179,12 +181,19 @@ def master(goals=[]):
                     need_path = True # request a new path
                     print('[MASTER] Path intersects inf/occ cells, new path requested')
                     break
+
+            # Dg = goal_x - msg_motion.x
+            # Dg = goal_y - msg_motion.y
+            # if not is_free(goals[goal_idx]) and (Dg*Dg + Dg*Dg <= 10*CLOSE_ENOUGH_SQ) :
+            #     goal_idx += 1
+            #     need_path = True # request a new path
+            
             using_map = False
         
             # if there is no urgent need to replan
             
             ########
-
+            
             # check if close enough to target 查看机器人当前位置和目标点是否足够接近
             Di = target_x - msg_motion.x
             Dj = target_y - msg_motion.y
@@ -195,7 +204,7 @@ def master(goals=[]):
                     # still have targets remaining 说明对于这个trajectory，在这个target之后还有新的target没有完成，还需要继续运动
                     # 在第一次运行的时候由于还没有生成路径，因此在这里Dx和Dy都是0
                     # 利用在前面trajectory计算中得到的Dx和Dy计算出下一个target的坐标位置
-                    # ？？？由于目标点和inflation重合了，所以实际上无论怎么进行规划和运动，都不能达到这最后一个target
+                    # 由于目标点和inflation重合了，所以实际上无论怎么进行规划和运动，都不能达到这最后一个target xxxx
                     # ？？？同样的，对于最后一条路径，如果其在某一个target上被inflation堵住了，其一直无法运动，但是在规划里面Dx一直叠加导致在直线上直接叠加到了目标点？所以导致了最后终结
                     target_x += Dx
                     target_y += Dy
@@ -204,10 +213,12 @@ def master(goals=[]):
                     msg_target_position.x = target_x
                     msg_target_position.y = target_y
                     pub_target.publish(msg_target)
+                    
                 else:
                     # no more targets remaining (i.e., reached turning point / goal) 到达了中途所需要的点turning point或者已经到达了goal
                     turnpt_idx -= 1
                     # 在第一轮运行的时候 turnpt_idx本来就已经是-1了，在操作后变为-2
+                    # 由于这个turnpt是倒序的，所以要一直往下减，每次到达一个turning point就要-1，在turning point为0的时候就要
                     if turnpt_idx >= 0:
                         # turning points remaining 说明中间还有turning point还没有通过
                         turnpt = msg_path.poses[turnpt_idx].pose.position            
@@ -222,7 +233,17 @@ def master(goals=[]):
                         
                         # break if no more goals 如果这个时候所有的goal都已经达到了，那么说明我们的规划已经结束了，循环也可以结束了
                         if goal_idx == num_goals:
-                            print("[MASTER] Final goal ({}, {}) reached!".format(goal_x, goal_y))
+                            # 同时判断在真实世界中是不是真的到了
+                            # 计算当前点和当前目标点的距离
+                            Dgx = goal_x - msg_motion.x
+                            Dgy = goal_y - msg_motion.y
+                            # 如果当前点的距离和goal足够接近（距离小于50cm） 判断确实到达了最终目标点
+                            if Dgx*Dgx + Dgx*Dgx <= 25*CLOSE_ENOUGH_SQ:
+                                print("[MASTER] Final goal ({}, {}) reached!".format(goal_x, goal_y))
+                            # 否则重新设置goal，进行path plan
+                            else:
+                                goal_idx -= 1
+                                print("[MASTER] not reached the final goal, need to replan")
                             break
                         
                         print("[MASTER] Goal ({}, {}) reached, new path requested".format(goal_x, goal_y))
@@ -241,19 +262,56 @@ def master(goals=[]):
                 print('[MASTER] Path Found')
                 if not path_planners.path_pts:
                     print('[MASTER] No path found (robot/goal in occupied/inflation cell?)')
+                    
+                    # 加入一个计数器，如果连续10次检测到了本次goal在障碍物里面则直接跳过这个goal
+                    inf_count += 1
+                    print(inf_count)
+
+                    # 其本身在occ/inf里面
+                    if not is_free([msg_motion.x,msg_motion.y]):
+                        msg_target_position.x = target_x - Dx
+                        msg_target_position.y = target_y - Dy
+                        pub_target.publish(msg_target)
+                        print("[MASTER] Go back to the front traget")
+
+                    # goal在occ/inf里面
+                    else: 
+                        # 计算当前点和当前目标点的距离
+                        Dgx = goal_x - msg_motion.x
+                        Dgy = goal_y - msg_motion.y
+                        
+                        # 如果在同一个地方找不到路径超过20次，同时机器人已经和当前目标点非常接近
+                        # （20个循环的检测中，这一goal均在得到的map的inflation中，我们则直接寻找下一个goal）
+                        if inf_count > 20:
+                            
+                            # 如果当前点和goal非常接近，直接认为已经到达了目标点了
+                            if Dgx*Dgx + Dgx*Dgx <= 25*CLOSE_ENOUGH_SQ:
+                                goal_idx += 1
+                                print("[MASTER] The robot nearly reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
+                            # 反之如果难以到达当前的目标点，则考虑直接掠过，寻找下一个目标点
+                            else:
+                                msg_target_position.x = target_x - Dx
+                                msg_target_position.y = target_y - Dy
+                                pub_target.publish(msg_target)
+                                print("[MASTER] Go back to the front traget")
+                                #print("[MASTER] Warning: The robot can't reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
+                    need_path = True
+                        
                     t += ITERATION_PERIOD # check in next iteration
                     
                     # publish as a fail safe, so it doesn't get trapped at a target point                    
                     
                     continue
-                
+
+                # 当找到了一条新的路径，则此时直接清空计数
+                inf_count = 0
                 # convert to appropriate data and publish for visualisation in rviz
                 msg_path.header.seq += 1
                 planner2topic(path_planners.path_pts, msg_path)
                 pub_path.publish(msg_path)
                     
                 # get the first turning point (second point in path)  从我们得到的整条路径中得到第一个所规划出的第一个turning point点（一条路径应该会产生多个turning point点）
-                # -2的原因应该是把第一个点和最后一个goal去掉？
+                # -2的原因是由于这里是倒序，而py的序号是从0开始的，因此是长度-1是第一个元素，在这里去掉起点因此是len-2
                 turnpt_idx = len(path_planners.path_pts) - 2
                 turnpt = msg_path.poses[turnpt_idx].pose.position
                 turnpt_x = turnpt.x
