@@ -148,13 +148,13 @@ def master(goals=[]):
     
     # init goal position and index
     goal_idx = 0
-    num_goals = len(goals)  # 目标点的数量
-    goal = goals[goal_idx]  # 当前goal的值，在初始化的时候设定的是第一个值
+    num_goals = len(goals)
+    goal = goals[goal_idx]
     goal_x = goal[0]
     goal_y = goal[1]
     
-    turnpt_x = goal_x  # 中间的转折点的x，在这里turnpt和goal是一样的
-    turnpt_y = goal_y  # 
+    turnpt_x = goal_x
+    turnpt_y = goal_y
     turnpt_idx = -1
     
     target_x = msg_motion.x
@@ -175,68 +175,62 @@ def master(goals=[]):
             # check path if there is overlap
             using_map = True
             for k in path_planners.path_full: # for all cells in the full path...
-                if not is_free(msg_map.data[k]): # if is occupied / inflated... 如果其在运动的时候路途中的某一个点是inflation或者occupied则需要再次规划路径
+                if not is_free(msg_map.data[k]): # if is occupied / inflated...
                     need_path = True # request a new path
                     print('[MASTER] Path intersects inf/occ cells, new path requested')
                     break
             using_map = False
         
-            # if there is no urgent need to replan
-            
+            # # if there is no urgent need to replan
             ########
-
-            # check if close enough to target 查看机器人当前位置和目标点是否足够接近
+            
+            # check if close enough to target
             Di = target_x - msg_motion.x
             Dj = target_y - msg_motion.y
             if Di*Di + Dj*Dj <= CLOSE_ENOUGH_SQ:
-                # target reached 如果和target的距离足够近，则直接认为我们已经到达了这个traget，可以看看下一个target了
+                # target reached
                 target_idx += 1
                 if target_idx < num_targets:
-                    # still have targets remaining 说明对于这个trajectory，在这个target之后还有新的target没有完成，还需要继续运动
-                    # 在第一次运行的时候由于还没有生成路径，因此在这里Dx和Dy都是0
-                    # 利用在前面trajectory计算中得到的Dx和Dy计算出下一个target的坐标位置
-                    # ？？？由于目标点和inflation重合了，所以实际上无论怎么进行规划和运动，都不能达到这最后一个target
-                    # ？？？同样的，对于最后一条路径，如果其在某一个target上被inflation堵住了，其一直无法运动，但是在规划里面Dx一直叠加导致在直线上直接叠加到了目标点？所以导致了最后终结
+                    # still have targets remaining
                     target_x += Dx
                     target_y += Dy
                     
-                    # publish new target 在计算出下一个target以后将其作为信息进行发送
+                    # publish new target
                     msg_target_position.x = target_x
                     msg_target_position.y = target_y
                     pub_target.publish(msg_target)
                 else:
-                    # no more targets remaining (i.e., reached turning point / goal) 到达了中途所需要的点turning point或者已经到达了goal
+                    # no more targets remaining (i.e., reached turning point / goal)
                     turnpt_idx -= 1
-                    # 在第一轮运行的时候 turnpt_idx本来就已经是-1了，在操作后变为-2
                     if turnpt_idx >= 0:
-                        # turning points remaining 说明中间还有turning point还没有通过
+                        # turning points remaining
                         turnpt = msg_path.poses[turnpt_idx].pose.position            
                         turnpt_x = turnpt.x
                         turnpt_y = turnpt.y
                         
-                        # generate new targets (trajectory) 需要生成新的trajectory
+                        # generate new targets (trajectory)
                         need_trajectory = True
                     else:
-                        # no more turning points remaining, reached goal 所有的中途点都已经通过了，说明已经达到了我们需要的当前goals，因此让goal的下标+1寻找下一个goal
+                        # no more turning points remaining, reached goal
                         goal_idx += 1
                         
-                        # break if no more goals 如果这个时候所有的goal都已经达到了，那么说明我们的规划已经结束了，循环也可以结束了
+                        # break if no more goals
                         if goal_idx == num_goals:
                             print("[MASTER] Final goal ({}, {}) reached!".format(goal_x, goal_y))
                             break
                         
                         print("[MASTER] Goal ({}, {}) reached, new path requested".format(goal_x, goal_y))
-                        # get the next goal 否则说明我们需要规划通往下一个goal的路径了
+                        # get the next goal
                         goal = goals[goal_idx]
                         goal_x = goal[0]
                         goal_y = goal[1]
                         
-                        # generate new path and targets (trajectory) 需要规划新的path
+                        # generate new path and targets (trajectory)
                         need_path = True
             
             if need_path:
                 
-                # replan the path 由于需要新的path，因此调用plan函数重新计算一条路径
+                # replan the path
                 plan(msg_motion.x, msg_motion.y, goal_x, goal_y) # given the logic, not possible to return a path with 1 idx (on the goal)
                 print('[MASTER] Path Found')
                 if not path_planners.path_pts:
@@ -252,44 +246,38 @@ def master(goals=[]):
                 planner2topic(path_planners.path_pts, msg_path)
                 pub_path.publish(msg_path)
                     
-                # get the first turning point (second point in path)  从我们得到的整条路径中得到第一个所规划出的第一个turning point点（一条路径应该会产生多个turning point点）
-                # -2的原因应该是把第一个点和最后一个goal去掉？
+                # get the first turning point (second point in path)
                 turnpt_idx = len(path_planners.path_pts) - 2
                 turnpt = msg_path.poses[turnpt_idx].pose.position
                 turnpt_x = turnpt.x
                 turnpt_y = turnpt.y
-                # 到这里为止，由于我们已经规划过了path，在这里除非还有更新，否则不需要再调用生成path的函数，但是由于还没有规划路径，因此trajectory的参数仍为True
+                
                 need_path = False
                 need_trajectory = True
                 
             if need_trajectory:
-                # generate points 根据我们在前面得到的turning point来规划我们所需要的轨迹
-                turnpt = msg_path.poses[turnpt_idx+1].pose.position # the cell which the robot is on; reused variable turnpt 获取下一个turning point的信息
-                # 将机器人要移动到turning point的设定为我们的target
+                # generate points
+                turnpt = msg_path.poses[turnpt_idx+1].pose.position # the cell which the robot is on; reused variable turnpt
                 target_x = turnpt.x
                 target_y = turnpt.y
-                # 计算这一个turning point和下一个turning point（traget）的距离，这个距离会在每次循环到达下一个target中被调用，直到到达我们所需要的turning point才会在下一个trajectory计算中被重新计算
                 Dx = turnpt_x - target_x
                 Dy = turnpt_y - target_y
-                # 根据我们计算出的绝对距离，对这个轨迹进行一个等距离的分割
                 num_targets = sqrt(Dx*Dx + Dy*Dy) / TARGET_SEPARATION # find number of points
-                # 分别获得每一段的距离
                 Dx /= num_targets
                 Dy /= num_targets 
-                num_targets = int(floor(num_targets)) #将target的数量转换为int
-                # bypass robot position due to overshooting position while travelling 初始化为第一个target，
+                num_targets = int(floor(num_targets))
+                # bypass robot position due to overshooting position while travelling
                 target_idx = 1
                 target_x += Dx * target_idx
                 target_y += Dy * target_idx
                 
-                # publish new target 将这个第一个target进行发布
+                # publish new target
                 msg_target_position.x = target_x
                 msg_target_position.y = target_y
                 pub_target.publish(msg_target)
                 
-                # switch to previous state 由于已经完成了轨迹的规划，轨迹上的每一个点都已经得到了
+                # switch to previous state
                 need_trajectory = False
-            
             ########
             
             et = (rospy.get_time() - t)
@@ -306,7 +294,6 @@ def master(goals=[]):
 if __name__ == '__main__':      
     try: 
         # parse goals
-        # 文件里面将所需要的goal读入
         if len(sys.argv) > 1:
             goals = sys.argv[1]
             goals = goals.split('|')
@@ -315,7 +302,7 @@ if __name__ == '__main__':
                 tmp[0] = float(tmp[0])
                 tmp[1] = float(tmp[1])
                 goals[i] = tmp
-            # 运行master的程序
+            
             master(goals)
         else:
             master()
