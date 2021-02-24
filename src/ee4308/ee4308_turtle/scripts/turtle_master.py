@@ -240,11 +240,19 @@ def master(goals=[]):
                             # 如果当前点的距离和goal足够接近（距离小于50cm） 判断确实到达了最终目标点
                             if Dgx*Dgx + Dgx*Dgx <= 25*CLOSE_ENOUGH_SQ:
                                 print("[MASTER] Final goal ({}, {}) reached!".format(goal_x, goal_y))
-                            # 否则重新设置goal，进行path plan
+                                # 否则重新设置goal，进行path plan
+                                break # 这里是整个程序的出口
                             else:
                                 goal_idx -= 1
+                                
                                 print("[MASTER] not reached the final goal, need to replan")
-                            break
+                                goal = goals[goal_idx]
+                                goal_x = goal[0]
+                                goal_y = goal[1]
+
+                                need_path = True
+                                continue # 直接跳过整个过程重新进行运算（不能打印后面的终止信息）
+                            
                         
                         print("[MASTER] Goal ({}, {}) reached, new path requested".format(goal_x, goal_y))
                         # get the next goal 否则说明我们需要规划通往下一个goal的路径了
@@ -266,24 +274,30 @@ def master(goals=[]):
                     # 加入一个计数器，如果连续10次检测到了本次goal在障碍物里面则直接跳过这个goal
                     inf_count += 1
                     print(inf_count)
-
-                    # 其本身在occ/inf里面
-                    if not is_free([msg_motion.x,msg_motion.y]):
-                        msg_target_position.x = target_x - Dx
-                        msg_target_position.y = target_y - Dy
-                        pub_target.publish(msg_target)
-                        print("[MASTER] Go back to the front traget")
-
-                    # goal在occ/inf里面
-                    else: 
-                        # 计算当前点和当前目标点的距离
-                        Dgx = goal_x - msg_motion.x
-                        Dgy = goal_y - msg_motion.y
+                    if inf_count > 20:
                         
-                        # 如果在同一个地方找不到路径超过20次，同时机器人已经和当前目标点非常接近
-                        # （20个循环的检测中，这一goal均在得到的map的inflation中，我们则直接寻找下一个goal）
-                        if inf_count > 20:
+                        ri = x2i(msg_motion.x)
+                        rj = y2j(msg_motion.y)
+                        rk = ri*num_j + rj
+
+                        # robot本身在occ/inf里面
+
+                        if not is_free(msg_map.data[rk]):
+                            msg_target_position.x = target_x - Dx
+                            msg_target_position.y = target_y - Dy
+                            pub_target.publish(msg_target)
+                            print("[MASTER] Go back to the front target")
+
+                        # goal在occ/inf里面
+                        else: 
+                            # 计算当前点和当前目标点的距离
+                            Dgx = goal_x - msg_motion.x
+                            Dgy = goal_y - msg_motion.y
                             
+                            # 如果在同一个地方找不到路径超过20次，同时机器人已经和当前目标点非常接近
+                            # （20个循环的检测中，这一goal均在得到的map的inflation中，我们则直接寻找下一个goal）
+                            
+                                
                             # 如果当前点和goal非常接近，直接认为已经到达了目标点了
                             if Dgx*Dgx + Dgx*Dgx <= 25*CLOSE_ENOUGH_SQ:
                                 goal_idx += 1
@@ -293,7 +307,7 @@ def master(goals=[]):
                                 msg_target_position.x = target_x - Dx
                                 msg_target_position.y = target_y - Dy
                                 pub_target.publish(msg_target)
-                                print("[MASTER] Go back to the front traget")
+                                print("[MASTER] Go back to the front target")
                                 #print("[MASTER] Warning: The robot can't reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
                     need_path = True
                         
