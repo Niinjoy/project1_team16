@@ -28,8 +28,8 @@ COST_FUNCTION = "EUCLIDEAN" # "DIAGONAL" or "EUCLIDEAN"
 # Turtle Motion
 AXLE_TRACK = 0.16 #m
 WHEEL_RADIUS = 0.033 #m
-TRUST_ODM_V = 0.9 # gain between 0 and 1. Higher to trust odometry more than imu in forward velocity measurements
-TRUST_ODM_W = 0.1 # gain between 0 and 1. Higher to trust odometry more than imu in angular velocity measurements
+TRUST_ODM_V = 0.3 # gain between 0 and 1. Higher to trust odometry more than imu in forward velocity measurements
+TRUST_ODM_W = 0.3 # gain between 0 and 1. Higher to trust odometry more than imu in angular velocity measurements
 TRUST_IMU_V = 1. - TRUST_ODM_V
 TRUST_IMU_W = 1. - TRUST_ODM_W
 STRAIGHT_TOLERANCE = 5e-1 # rad/s. Tolerance to switch between motion models during high and low angular velocities
@@ -44,8 +44,8 @@ MAX_DV = 0.05 # maximum change in forward speed (m/s) in one ITERATION_PERIOD
 MAX_DW = 0.1 # maximum change in angular speed (rad/s) in one ITERATION_PERIOD
 # TURN_THRESHOLD = pi / 3. # if more than TURN_THRESHOLD radians from target, forward speed is zero. Else, is a quadratic triangle function (rad)
 # define PD controller gains
-KP_V = 4.0# P gain for forward velocity
+KP_V = 2.0# P gain for forward velocity
 KP_W = 2.0 # P gain for angular velocity
-KD_V = 8.0 # D gain for forward velocity
+KD_V = 4.0 # D gain for forward velocity
 KD_W = 8.0 # D gain for angular velocity
 DISABLE_MOVE = False
