@@ -138,7 +138,7 @@ def master(goals=[]):
     
     path_planners.init_module(num_i, num_j)
     
-    msg_path = Path();
+    msg_path = Path()
     msg_path.header.frame_id = "map"
     
     msg_target = PointStamped()

@@ -138,7 +138,7 @@ def master(goals=[]):
     
     path_planners.init_module(num_i, num_j)
     
-    msg_path = Path();
+    msg_path = Path()
     msg_path.header.frame_id = "map"
     
     msg_target = PointStamped()
@@ -287,8 +287,6 @@ def master(goals=[]):
                                 print("[MASTER] Go back to the front target")                        
                                 print("[MASTER] Warning: The robot can't reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
 
-                    # whenever the master.py come into the if, the path need to be replan so here also set need_path = True
-                    need_path = True
                     # publish as a fail safe, so it doesn't get trapped at a target point  
                                        
                     continue
