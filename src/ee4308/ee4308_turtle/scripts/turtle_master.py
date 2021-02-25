@@ -154,7 +154,7 @@ def master(goals=[]):
     goal_y = goal[1]
     
     turnpt_x = goal_x  
-    turnpt_y = goal_y  # 
+    turnpt_y = goal_y
     turnpt_idx = -1
     
     target_x = msg_motion.x
@@ -190,30 +190,27 @@ def master(goals=[]):
             
             using_map = False
         
-            # if there is no urgent need to replan
-            
+            # # if there is no urgent need to replan
             ########
             
             # check if close enough to target 
             Di = target_x - msg_motion.x
             Dj = target_y - msg_motion.y
             if Di*Di + Dj*Dj <= CLOSE_ENOUGH_SQ:
-                
+                # target reached
                 target_idx += 1
                 if target_idx < num_targets:
-                    
+                    # still have targets remaining
                     target_x += Dx
                     target_y += Dy
                     
                     # publish new target 
                     msg_target_position.x = target_x
                     msg_target_position.y = target_y
-                    pub_target.publish(msg_target)
-                    
+                    pub_target.publish(msg_target)                    
                 else:
                     # no more targets remaining (i.e., reached turning point / goal) 
                     turnpt_idx -= 1
-                   
                     if turnpt_idx >= 0:
                         # turning points remaining 
                         turnpt = msg_path.poses[turnpt_idx].pose.position            
@@ -224,7 +221,6 @@ def master(goals=[]):
                         need_trajectory = True
                     else:
                         # no more turning points remaining, reached goal 
-                        
                         
                         # break if no more goals 
                         if goal_idx + 1 == num_goals:
@@ -237,23 +233,21 @@ def master(goals=[]):
                                 print("[MASTER] Final goal ({}, {}) reached!".format(goal_x, goal_y))
                                 break 
 
-                            else:
-                                
+                            else:                                
                                 # print("[MASTER] not reached the final goal, need to replan")
                                 goal = goals[goal_idx]
                                 goal_x = goal[0]
                                 goal_y = goal[1]
-
                                 need_path = True
                                 continue 
-                            
                         goal_idx += 1
                         print("[MASTER] Goal ({}, {}) reached, new path requested".format(goal_x, goal_y))                       
+                        # get the next goal
                         goal = goals[goal_idx]
                         goal_x = goal[0]
                         goal_y = goal[1]
                         
-                        
+                        # generate new path and targets (trajectory)
                         need_path = True
             
             if need_path:
@@ -263,51 +257,34 @@ def master(goals=[]):
                 print('[MASTER] Path Found')
                 if not path_planners.path_pts:
                     print('[MASTER] No path found (robot/goal in occupied/inflation cell?)')
-                    
-                    
                     inf_count += 1
                     print(inf_count)
-                    if inf_count > 3:
-                        
+                    if inf_count > 3:                        
                         ri = x2i(msg_motion.x)
                         rj = y2j(msg_motion.y)
                         rk = ri*num_j + rj
-                        
-
                         if not is_free(msg_map.data[rk]):
                             msg_target_position.x = target_x - 2*Dx
                             msg_target_position.y = target_y - 2*Dy
                             pub_target.publish(msg_target)
-                           
                             print("[MASTER] Go back to the front target")
                             continue
-                            
-
-                        
                         else: 
-                            
                             Dgx = goal_x - msg_motion.x
                             Dgy = goal_y - msg_motion.y         
-                          
-                            
                             if Dgx*Dgx + Dgy*Dgy <= 5*CLOSE_ENOUGH_SQ:
                                 goal_idx += 1
                                 goal = goals[goal_idx]
                                 goal_x = goal[0]
                                 goal_y = goal[1]
                                 print("[MASTER] The robot nearly reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
-                            
-
                             else:
                                 msg_target_position.x = target_x - 2*Dx
                                 msg_target_position.y = target_y - 2*Dy
                                 pub_target.publish(msg_target)
-                                
                                 print("[MASTER] Go back to the front target")                        
                                 print("[MASTER] Warning: The robot can't reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
-
                     need_path = True
-                        
                     t += ITERATION_PERIOD # check in next iteration
                     
                     # publish as a fail safe, so it doesn't get trapped at a target point                    
@@ -320,14 +297,17 @@ def master(goals=[]):
                 planner2topic(path_planners.path_pts, msg_path)
                 pub_path.publish(msg_path)
                     
+                # get the first turning point (second point in path)
                 turnpt_idx = len(path_planners.path_pts) - 2
                 turnpt = msg_path.poses[turnpt_idx].pose.position
                 turnpt_x = turnpt.x
                 turnpt_y = turnpt.y
+                
                 need_path = False
                 need_trajectory = True
                 
             if need_trajectory:
+                # generate points
                 turnpt = msg_path.poses[turnpt_idx+1].pose.position # the cell which the robot is on; reused variable turnpt
                 target_x = turnpt.x
                 target_y = turnpt.y
@@ -349,7 +329,6 @@ def master(goals=[]):
                 
                 # switch to previous state 
                 need_trajectory = False
-            
             ########
             
             et = (rospy.get_time() - t)
@@ -374,6 +353,7 @@ if __name__ == '__main__':
                 tmp[0] = float(tmp[0])
                 tmp[1] = float(tmp[1])
                 goals[i] = tmp
+            
             master(goals)
         else:
             master()
