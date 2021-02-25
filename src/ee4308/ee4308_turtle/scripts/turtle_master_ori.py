@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# pylint: disable=import-error
 import roslib, rospy, rospkg
 from nav_msgs.msg import Path, OccupancyGrid
 from geometry_msgs.msg import PoseStamped, PointStamped

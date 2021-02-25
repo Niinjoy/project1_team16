@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# pylint: disable=import-error
 import roslib, rospy, rospkg
 from nav_msgs.msg import Path, OccupancyGrid
 from geometry_msgs.msg import PoseStamped, PointStamped
@@ -207,7 +207,7 @@ def master(goals=[]):
                     # publish new target 
                     msg_target_position.x = target_x
                     msg_target_position.y = target_y
-                    pub_target.publish(msg_target)                    
+                    pub_target.publish(msg_target)
                 else:
                     # no more targets remaining (i.e., reached turning point / goal) 
                     turnpt_idx -= 1
@@ -220,32 +220,32 @@ def master(goals=[]):
                         # generate new targets (trajectory) 
                         need_trajectory = True
                     else:
-                        # no more turning points remaining, reached goal 
-                        
+                        # no more turning points remaining, reached goal                         
+                        goal_idx += 1
+
                         # break if no more goals 
-                        if goal_idx + 1 == num_goals:
+                        if goal_idx == num_goals:
                            
                             Dgx = goal_x - msg_motion.x
                             Dgy = goal_y - msg_motion.y
                            
                             if Dgx*Dgx + Dgy*Dgy <= 5*CLOSE_ENOUGH_SQ:
-                                goal_idx += 1
+                                
                                 print("[MASTER] Final goal ({}, {}) reached!".format(goal_x, goal_y))
                                 break 
 
-                            else:                                
-                                # print("[MASTER] not reached the final goal, need to replan")
-                                goal = goals[goal_idx]
-                                goal_x = goal[0]
-                                goal_y = goal[1]
-                                need_path = True
-                                continue 
-                        goal_idx += 1
+                            else:
+                                goal_idx -= 1
+                                print("[MASTER] not reached the final goal, need to replan")
+                                # goal = goals[goal_idx]
+                                # goal_x = goal[0]
+                                # goal_y = goal[1]                           
+                        
                         print("[MASTER] Goal ({}, {}) reached, new path requested".format(goal_x, goal_y))                       
                         # get the next goal
                         goal = goals[goal_idx]
                         goal_x = goal[0]
-                        goal_y = goal[1]
+                        goal_y = goal[1]                       
                         
                         # generate new path and targets (trajectory)
                         need_path = True
@@ -253,13 +253,16 @@ def master(goals=[]):
             if need_path:
                 
                 # replan the path 
+                print("[PLAN] Plan the path to the Goal ({}, {})".format(goal_x, goal_y))
                 plan(msg_motion.x, msg_motion.y, goal_x, goal_y) # given the logic, not possible to return a path with 1 idx (on the goal)
                 print('[MASTER] Path Found')
                 if not path_planners.path_pts:
                     print('[MASTER] No path found (robot/goal in occupied/inflation cell?)')
+                    t += ITERATION_PERIOD # check in next iteration, make sure that even it come into this if code, the time is increasing
+
                     inf_count += 1
                     print(inf_count)
-                    if inf_count > 3:                        
+                    if inf_count > 3:
                         ri = x2i(msg_motion.x)
                         rj = y2j(msg_motion.y)
                         rk = ri*num_j + rj
@@ -267,8 +270,7 @@ def master(goals=[]):
                             msg_target_position.x = target_x - 2*Dx
                             msg_target_position.y = target_y - 2*Dy
                             pub_target.publish(msg_target)
-                            print("[MASTER] Go back to the front target")
-                            continue
+                            print("[MASTER] Go back to the front target, need to replan")
                         else: 
                             Dgx = goal_x - msg_motion.x
                             Dgy = goal_y - msg_motion.y         
@@ -284,13 +286,14 @@ def master(goals=[]):
                                 pub_target.publish(msg_target)
                                 print("[MASTER] Go back to the front target")                        
                                 print("[MASTER] Warning: The robot can't reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
-                    need_path = True
-                    t += ITERATION_PERIOD # check in next iteration
-                    
-                    # publish as a fail safe, so it doesn't get trapped at a target point                    
-                    
-                    continue
 
+                    # whenever the master.py come into the if, the path need to be replan so here also set need_path = True
+                    need_path = True
+                    # publish as a fail safe, so it doesn't get trapped at a target point  
+                                       
+                    continue
+                
+                # whenever the plan is normal reset the counter about failure to be 0
                 inf_count = 0
                 # convert to appropriate data and publish for visualisation in rviz
                 msg_path.header.seq += 1
@@ -302,7 +305,8 @@ def master(goals=[]):
                 turnpt = msg_path.poses[turnpt_idx].pose.position
                 turnpt_x = turnpt.x
                 turnpt_y = turnpt.y
-                
+
+                # we have plan a available path so here the need_path is set to be False
                 need_path = False
                 need_trajectory = True
                 
@@ -328,7 +332,7 @@ def master(goals=[]):
                 pub_target.publish(msg_target)
                 
                 # switch to previous state 
-                need_trajectory = False
+                need_trajectory = False            
             ########
             
             et = (rospy.get_time() - t)
@@ -353,7 +357,7 @@ if __name__ == '__main__':
                 tmp[0] = float(tmp[0])
                 tmp[1] = float(tmp[1])
                 goals[i] = tmp
-            
+
             master(goals)
         else:
             master()
