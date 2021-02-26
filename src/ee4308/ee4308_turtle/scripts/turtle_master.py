@@ -253,6 +253,32 @@ def master(goals=[]):
             if need_path:
                 
                 # replan the path 
+                goal_x_i = x2i(goal_x)
+                goal_y_j = y2j(goal_y)
+                goal_k = goal_x_i*num_j + goal_y_j
+                if not is_free(msg_map.data[goal_k]):
+                    print("[MASTER] The goal in the inf/occ, need a new goal")               
+                    break2 = False
+                    range_num = 20
+                    for i in range(range_num):
+                        for j in range(range_num):
+                            goal_new_x = goal_x + (i-range_num/2)*0.04
+                            goal_new_y = goal_y + (j-range_num/2)*0.04
+                            goal_x_i = x2i(goal_new_x)
+                            goal_y_j = y2j(goal_new_y)
+                            goal_k = goal_x_i*num_j + goal_y_j
+                            if is_free(msg_map.data[goal_k]) and (goal_new_y > -1.2) and (goal_new_y < 1.2) and (goal_new_x < 2.4) and (goal_new_x > 0):
+                                
+                                print(i)
+                                print(j)
+                                goal_x = goal_x + (i-range_num/2)*0.04
+                                goal_y = goal_y + (j-range_num/2)*0.04
+                                print("[MASTER] Replan to the Goal ({}, {})".format(goal_x, goal_y))
+                                break2 = True
+                                break
+                        if (break2):
+                            break
+                
                 print("[PLAN] Plan the path to the Goal ({}, {})".format(goal_x, goal_y))
                 plan(msg_motion.x, msg_motion.y, goal_x, goal_y) # given the logic, not possible to return a path with 1 idx (on the goal)
                 print('[MASTER] Path Found')
@@ -262,33 +288,34 @@ def master(goals=[]):
 
                     inf_count += 1
                     print(inf_count)
-                    if inf_count > 3:
+                    if inf_count > -1:
                         ri = x2i(msg_motion.x)
                         rj = y2j(msg_motion.y)
                         rk = ri*num_j + rj
                         if not is_free(msg_map.data[rk]):
-                            msg_target_position.x = target_x - 2*Dx
-                            msg_target_position.y = target_y - 2*Dy
+                            print("[MASTER] Robot in the occ/inf")
+                            msg_target_position.x = target_x - 3*Dx
+                            msg_target_position.y = target_y - 3*Dy
                             pub_target.publish(msg_target)
                             print("[MASTER] Go back to the front target, need to replan")
-                        else: 
-                            Dgx = goal_x - msg_motion.x
-                            Dgy = goal_y - msg_motion.y         
-                            if Dgx*Dgx + Dgy*Dgy <= 5*CLOSE_ENOUGH_SQ:
-                                goal_idx += 1
-                                goal = goals[goal_idx]
-                                goal_x = goal[0]
-                                goal_y = goal[1]
-                                print("[MASTER] The robot nearly reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
-                            else:
-                                msg_target_position.x = target_x - 2*Dx
-                                msg_target_position.y = target_y - 2*Dy
-                                pub_target.publish(msg_target)
-                                print("[MASTER] Go back to the front target")                        
-                                print("[MASTER] Warning: The robot can't reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
+                        # else: 
+                        #     Dgx = goal_x - msg_motion.x
+                        #     Dgy = goal_y - msg_motion.y         
+                        #     if Dgx*Dgx + Dgy*Dgy <= 5*CLOSE_ENOUGH_SQ:
+                        #         goal_idx += 1
+                        #         goal = goals[goal_idx]
+                        #         goal_x = goal[0]
+                        #         goal_y = goal[1]
+                        #         print("[MASTER] The robot nearly reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
+                        #     else:                                
+                        #         msg_target_position.x = target_x - 5*Dx
+                        #         msg_target_position.y = target_y - 5*Dy
+                        #         pub_target.publish(msg_target)
+                        #         print("[MASTER] Go back to the front target")                        
+                        #         print("[MASTER] Warning: The robot can't reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
+                                
 
-                    # publish as a fail safe, so it doesn't get trapped at a target point  
-                                       
+                    # publish as a fail safe, so it doesn't get trapped at a target point                                        
                     continue
                 
                 # whenever the plan is normal reset the counter about failure to be 0

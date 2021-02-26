@@ -7,7 +7,7 @@ cd `echo $EE4308WS`
 
 # set the world and its parameters
 export TURTLE_GOALS="1.9,-0.8|0.6,1.1|0.0,0.0"
-export TURTLE_INF="0.2"
+export TURTLE_INF="0.25"
 export TURTLE_CELL="0.1"
 export TURTLE_X="0.0"
 export TURTLE_Y="0.0"
