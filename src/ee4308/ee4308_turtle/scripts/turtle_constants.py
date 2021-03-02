@@ -45,7 +45,7 @@ MAX_DW = 0.1 # maximum change in angular speed (rad/s) in one ITERATION_PERIOD
 # TURN_THRESHOLD = pi / 3. # if more than TURN_THRESHOLD radians from target, forward speed is zero. Else, is a quadratic triangle function (rad)
 # define PD controller gains
 KP_V = 4.0# P gain for forward velocity
-KP_W = 1.0 # P gain for angular velocity
+KP_W = 2.0 # P gain for angular velocity
 KD_V = 4.0 # D gain for forward velocity
 KD_W = 8.0 # D gain for angular velocity
 DISABLE_MOVE = False

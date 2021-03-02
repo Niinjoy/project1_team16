@@ -229,7 +229,7 @@ def master(goals=[]):
                             Dgx = goal_x - msg_motion.x
                             Dgy = goal_y - msg_motion.y
                            
-                            if Dgx*Dgx + Dgy*Dgy <= 5*CLOSE_ENOUGH_SQ:
+                            if Dgx*Dgx + Dgy*Dgy <= CLOSE_ENOUGH_SQ:
                                 
                                 print("[MASTER] Final goal ({}, {}) reached!".format(goal_x, goal_y))
                                 break 
@@ -257,7 +257,10 @@ def master(goals=[]):
                 goal_y_j = y2j(goal_y)
                 goal_k = goal_x_i*num_j + goal_y_j                
                 if not is_free(msg_map.data[goal_k]):
-                    print("[MASTER] The goal in the inf/occ, need a new goal")               
+                    print("[MASTER] The goal in the inf/occ, need a new goal")
+                    goal = goals[goal_idx]
+                    goal_x = goal[0]
+                    goal_y = goal[1]              
                     # break2 = False
                     range_num = 20
                     min_dis = 100
