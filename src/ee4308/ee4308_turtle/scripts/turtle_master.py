@@ -255,11 +255,13 @@ def master(goals=[]):
                 # replan the path 
                 goal_x_i = x2i(goal_x)
                 goal_y_j = y2j(goal_y)
-                goal_k = goal_x_i*num_j + goal_y_j
+                goal_k = goal_x_i*num_j + goal_y_j                
                 if not is_free(msg_map.data[goal_k]):
                     print("[MASTER] The goal in the inf/occ, need a new goal")               
-                    break2 = False
+                    # break2 = False
                     range_num = 20
+                    min_dis = 100
+                    i_use = j_use = 0
                     for i in range(range_num):
                         for j in range(range_num):
                             goal_new_x = goal_x + (i-range_num/2)*0.04
@@ -267,18 +269,19 @@ def master(goals=[]):
                             goal_x_i = x2i(goal_new_x)
                             goal_y_j = y2j(goal_new_y)
                             goal_k = goal_x_i*num_j + goal_y_j
-                            if is_free(msg_map.data[goal_k]) and (goal_new_y > -1.2) and (goal_new_y < 1.2) and (goal_new_x < 2.4) and (goal_new_x > 0):
+                            if is_free(msg_map.data[goal_k]) and (goal_new_y > -1.2) and (goal_new_y < 1.2) and (goal_new_x < 2.4) and (goal_new_x > 0):  
                                 
-                                print(i)
-                                print(j)
-                                goal_x = goal_x + (i-range_num/2)*0.04
-                                goal_y = goal_y + (j-range_num/2)*0.04
-                                print("[MASTER] Replan to the Goal ({}, {})".format(goal_x, goal_y))
-                                break2 = True
-                                break
-                        if (break2):
-                            break
-                
+                                if min_dis > (goal_new_x - goal_x)*(goal_new_x - goal_x) + (goal_new_y - goal_y)*(goal_new_y - goal_y):
+                                    i_use = i
+                                    j_use = j
+                                    min_dis = (goal_new_x - goal_x)*(goal_new_x - goal_x) + (goal_new_y - goal_y)*(goal_new_y - goal_y)
+                                # print("[MASTER] Replan to the Goal ({}, {})".format(goal_x, goal_y))
+                                # break2 = True
+                                # break
+                        # if (break2):
+                        #     break
+                    goal_x = goal_x + (i_use-range_num/2)*0.04
+                    goal_y = goal_y + (j_use-range_num/2)*0.04
                 print("[PLAN] Plan the path to the Goal ({}, {})".format(goal_x, goal_y))
                 plan(msg_motion.x, msg_motion.y, goal_x, goal_y) # given the logic, not possible to return a path with 1 idx (on the goal)
                 print('[MASTER] Path Found')
@@ -287,32 +290,43 @@ def master(goals=[]):
                     t += ITERATION_PERIOD # check in next iteration, make sure that even it come into this if code, the time is increasing
 
                     inf_count += 1
-                    print(inf_count)
+                    # print(inf_count)
                     if inf_count > -1:
                         ri = x2i(msg_motion.x)
                         rj = y2j(msg_motion.y)
                         rk = ri*num_j + rj
+                        # check whether the robot is in the occ/inf
                         if not is_free(msg_map.data[rk]):
                             print("[MASTER] Robot in the occ/inf")
-                            msg_target_position.x = target_x - 3*Dx
-                            msg_target_position.y = target_y - 3*Dy
-                            pub_target.publish(msg_target)
-                            print("[MASTER] Go back to the front target, need to replan")
-                        # else: 
-                        #     Dgx = goal_x - msg_motion.x
-                        #     Dgy = goal_y - msg_motion.y         
-                        #     if Dgx*Dgx + Dgy*Dgy <= 5*CLOSE_ENOUGH_SQ:
-                        #         goal_idx += 1
-                        #         goal = goals[goal_idx]
-                        #         goal_x = goal[0]
-                        #         goal_y = goal[1]
-                        #         print("[MASTER] The robot nearly reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
-                        #     else:                                
-                        #         msg_target_position.x = target_x - 5*Dx
-                        #         msg_target_position.y = target_y - 5*Dy
-                        #         pub_target.publish(msg_target)
-                        #         print("[MASTER] Go back to the front target")                        
-                        #         print("[MASTER] Warning: The robot can't reach the Goal ({}, {}) in inf/occ, new path requested".format(goal_x, goal_y))
+                            # msg_target_position.x = target_x - 3*Dx
+                            # msg_target_position.y = target_y - 3*Dy
+                            # pub_target.publish(msg_target)
+                            ri = x2i(msg_motion.x)
+                            rj = y2j(msg_motion.y)
+                            rk = ri*num_j + rj
+                            range_num_r = 10
+                            min_dis_r = 100
+                            i_use = j_use = 0
+                            for i in range(range_num_r):
+                                for j in range(range_num_r):
+                                    rb_new_x = msg_motion.x + (i-range_num/2)*0.04
+                                    rb_new_y = msg_motion.y + (j-range_num/2)*0.04
+                                    rb_x_i = x2i(rb_new_x)
+                                    rb_y_j = y2j(rb_new_y)
+                                    rb_k = rb_x_i*num_j + rb_y_j
+                                    if is_free(msg_map.data[rb_k]) and (rb_new_y > -1.2) and (rb_new_y < 1.2) and (rb_new_x < 2.4) and (rb_new_x > 0):
+                                        if min_dis_r > (rb_new_x-msg_motion.x)*(rb_new_x-msg_motion.x) + (rb_new_y-msg_motion.y)*(rb_new_y-msg_motion.y):
+                                            i_use = i
+                                            j_use = j
+                                            min_dis_r = (rb_new_x-msg_motion.x)*(rb_new_x-msg_motion.x) + (rb_new_y-msg_motion.y)*(rb_new_y-msg_motion.y)
+                            rb_new_x = msg_motion.x + (i_use-range_num/2)*0.04
+                            rb_new_y = msg_motion.y + (j_use-range_num/2)*0.04
+                            print("[MASTER] The nearest free cell is ({}, {}), need to replan".format(rb_new_x, rb_new_y))
+                            # use the nearest free cell to do the path plan again
+                            print("[PLAN] Plan the path to the Goal ({}, {})".format(goal_x, goal_y))
+                            plan(rb_new_x, rb_new_y, goal_x, goal_y)
+                            print('[MASTER] Path Found')
+                            # print("[MASTER] Go back to the front target, need to replan")
                                 
 
                     # publish as a fail safe, so it doesn't get trapped at a target point                                        
